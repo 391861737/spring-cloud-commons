@@ -1,13 +1,11 @@
-package org.springframework.cloud.bootstrap.encrypt;
-
 /*
- * Copyright 2013-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +13,8 @@ package org.springframework.cloud.bootstrap.encrypt;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package org.springframework.cloud.bootstrap.encrypt;
 
 import org.junit.Test;
 
@@ -24,9 +24,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.security.crypto.encrypt.TextEncryptor;
 import org.springframework.security.rsa.crypto.RsaAlgorithm;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.BDDAssertions.then;
 
 public class EncryptionBootstrapConfigurationTests {
 
@@ -36,7 +34,7 @@ public class EncryptionBootstrapConfigurationTests {
 				EncryptionBootstrapConfiguration.class).web(WebApplicationType.NONE)
 						.properties("encrypt.key:pie").run();
 		TextEncryptor encryptor = context.getBean(TextEncryptor.class);
-		assertEquals("foo", encryptor.decrypt(encryptor.encrypt("foo")));
+		then(encryptor.decrypt(encryptor.encrypt("foo"))).isEqualTo("foo");
 		context.close();
 	}
 
@@ -51,7 +49,7 @@ public class EncryptionBootstrapConfigurationTests {
 								"encrypt.keyStore.secret:changeme")
 						.run();
 		TextEncryptor encryptor = context.getBean(TextEncryptor.class);
-		assertEquals("foo", encryptor.decrypt(encryptor.encrypt("foo")));
+		then(encryptor.decrypt(encryptor.encrypt("foo"))).isEqualTo("foo");
 		context.close();
 	}
 
@@ -66,28 +64,27 @@ public class EncryptionBootstrapConfigurationTests {
 								"encrypt.key-store.secret:changeme")
 						.run();
 		TextEncryptor encryptor = context.getBean(TextEncryptor.class);
-		assertEquals("foo", encryptor.decrypt(encryptor.encrypt("foo")));
+		then(encryptor.decrypt(encryptor.encrypt("foo"))).isEqualTo("foo");
 		context.close();
 	}
-
 
 	@Test
 	public void rsaProperties() {
 		ConfigurableApplicationContext context = new SpringApplicationBuilder(
-				EncryptionBootstrapConfiguration.class).web(WebApplicationType.NONE).properties(
-				"encrypt.key-store.location:classpath:/server.jks",
-				"encrypt.key-store.password:letmein",
-				"encrypt.key-store.alias:mytestkey", "encrypt.key-store.secret:changeme",
-				"encrypt.rsa.strong:true",
-				"encrypt.rsa.salt:foobar")
-				.run();
+				EncryptionBootstrapConfiguration.class)
+						.web(WebApplicationType.NONE)
+						.properties("encrypt.key-store.location:classpath:/server.jks",
+								"encrypt.key-store.password:letmein",
+								"encrypt.key-store.alias:mytestkey",
+								"encrypt.key-store.secret:changeme",
+								"encrypt.rsa.strong:true", "encrypt.rsa.salt:foobar")
+						.run();
 		RsaProperties properties = context.getBean(RsaProperties.class);
-		assertEquals("foobar", properties.getSalt());
-		assertTrue(properties.isStrong());
-		assertEquals(RsaAlgorithm.DEFAULT, properties.getAlgorithm());
+		then(properties.getSalt()).isEqualTo("foobar");
+		then(properties.isStrong()).isTrue();
+		then(properties.getAlgorithm()).isEqualTo(RsaAlgorithm.DEFAULT);
 		context.close();
 	}
-
 
 	@Test
 	public void nonExistentKeystoreLocationShouldNotBeAllowed() {
@@ -99,12 +96,13 @@ public class EncryptionBootstrapConfigurationTests {
 							"encrypt.key-store.alias:mytestkey",
 							"encrypt.key-store.secret:changeme")
 					.run();
-			assertThat(false).as(
+			then(false).as(
 					"Should not create an application context with invalid keystore location")
 					.isTrue();
 		}
 		catch (Exception e) {
-			assertThat(e).hasRootCauseInstanceOf(IllegalStateException.class);
+			then(e).hasRootCauseInstanceOf(IllegalStateException.class);
 		}
 	}
+
 }

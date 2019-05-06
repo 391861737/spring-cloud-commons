@@ -1,11 +1,11 @@
 /*
- * Copyright 2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,6 +32,7 @@ import static java.util.Collections.singletonList;
  * Test configuration for {@link CompositeDiscoveryClient} tests.
  *
  * @author Olga Maciaszek-Sharma
+ * @author Tim Ysewyn
  */
 @Configuration
 @EnableAutoConfiguration
@@ -67,8 +68,8 @@ public class CompositeDiscoveryClientTestsConfig {
 			@Override
 			public List<ServiceInstance> getInstances(String serviceId) {
 				if (serviceId.equals(CUSTOM_SERVICE_ID)) {
-					ServiceInstance s1 = new DefaultServiceInstance(CUSTOM_SERVICE_ID,
-							"host", 123, false);
+					ServiceInstance s1 = new DefaultServiceInstance("customInstance",
+							CUSTOM_SERVICE_ID, "host", 123, false);
 					return singletonList(s1);
 				}
 				return Collections.emptyList();
@@ -85,4 +86,5 @@ public class CompositeDiscoveryClientTestsConfig {
 			}
 		};
 	}
+
 }

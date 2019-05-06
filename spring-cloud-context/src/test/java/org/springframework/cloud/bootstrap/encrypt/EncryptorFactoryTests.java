@@ -1,11 +1,11 @@
 /*
- * Copyright 2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,17 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.cloud.bootstrap.encrypt;
 
+import java.nio.charset.Charset;
+
 import org.junit.Test;
+
 import org.springframework.cloud.context.encrypt.EncryptorFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.crypto.encrypt.TextEncryptor;
 import org.springframework.util.StreamUtils;
 
-import java.nio.charset.Charset;
-
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.BDDAssertions.then;
 
 /**
  * @author Biju Kunjummen
@@ -40,7 +42,7 @@ public class EncryptorFactoryTests {
 		String toEncrypt = "sample text to encrypt";
 		String encrypted = encryptor.encrypt(toEncrypt);
 
-		assertEquals(toEncrypt, encryptor.decrypt(encrypted));
+		then(encryptor.decrypt(encrypted)).isEqualTo(toEncrypt);
 	}
 
 	@Test(expected = RuntimeException.class)
@@ -49,4 +51,5 @@ public class EncryptorFactoryTests {
 				+ "MIIEowIBAAKCAQEAwClFgrRa/PUHPIJr9gvIPL6g6Rjp/TVZmVNOf2fL96DYbkj5\n";
 		new EncryptorFactory().create(key);
 	}
+
 }

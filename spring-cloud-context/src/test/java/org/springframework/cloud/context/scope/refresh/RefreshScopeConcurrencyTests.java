@@ -1,11 +1,11 @@
 /*
- * Copyright 2006-2017 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.cloud.context.scope.refresh;
 
 import java.util.concurrent.Callable;
@@ -46,9 +47,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.Repeat;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.BDDAssertions.then;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = TestConfiguration.class)
@@ -72,7 +71,7 @@ public class RefreshScopeConcurrencyTests {
 	@DirtiesContext
 	public void testConcurrentRefresh() throws Exception {
 
-		assertEquals("Hello scope!", this.service.getMessage());
+		then(this.service.getMessage()).isEqualTo("Hello scope!");
 		this.properties.setMessage("Foo");
 		this.properties.setDelay(500);
 		final CountDownLatch latch = new CountDownLatch(1);
@@ -89,19 +88,19 @@ public class RefreshScopeConcurrencyTests {
 				}
 			}
 		});
-		assertTrue(latch.await(1500, TimeUnit.MILLISECONDS));
+		then(latch.await(15000, TimeUnit.MILLISECONDS)).isTrue();
 		logger.info("Refreshing");
 		this.scope.refreshAll();
-		assertEquals("Foo", this.service.getMessage());
+		then(this.service.getMessage()).isEqualTo("Foo");
 		/*
 		 * This is the most important assertion: we don't want a null value because that
 		 * means the bean was destroyed and not re-initialized before we accessed it.
 		 */
-		assertNotNull(result.get());
-		assertEquals("Hello scope!", result.get());
+		then(result.get()).isNotNull();
+		then(result.get()).isEqualTo("Hello scope!");
 	}
 
-	public static interface Service {
+	public interface Service {
 
 		String getMessage();
 
@@ -113,6 +112,7 @@ public class RefreshScopeConcurrencyTests {
 		private static Log logger = LogFactory.getLog(ExampleService.class);
 
 		private String message = null;
+
 		private volatile long delay = 0;
 
 		public void setDelay(long delay) {
@@ -130,11 +130,6 @@ public class RefreshScopeConcurrencyTests {
 			this.message = null;
 		}
 
-		public void setMessage(String message) {
-			logger.debug("Setting message: " + message);
-			this.message = message;
-		}
-
 		@Override
 		public String getMessage() {
 			logger.debug("Getting message: " + this.message);
@@ -146,6 +141,11 @@ public class RefreshScopeConcurrencyTests {
 			}
 			logger.info("Returning message: " + this.message);
 			return this.message;
+		}
+
+		public void setMessage(String message) {
+			logger.debug("Setting message: " + message);
+			this.message = message;
 		}
 
 	}
@@ -173,7 +173,9 @@ public class RefreshScopeConcurrencyTests {
 	@ConfigurationProperties
 	@ManagedResource
 	protected static class TestProperties {
+
 		private String message;
+
 		private int delay;
 
 		@ManagedAttribute
@@ -193,6 +195,7 @@ public class RefreshScopeConcurrencyTests {
 		public void setDelay(int delay) {
 			this.delay = delay;
 		}
+
 	}
 
 }

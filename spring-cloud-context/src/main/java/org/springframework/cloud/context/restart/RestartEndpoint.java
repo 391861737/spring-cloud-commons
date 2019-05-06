@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2014 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -119,33 +119,6 @@ public class RestartEndpoint implements ApplicationListener<ApplicationPreparedE
 		return new ResumeEndpoint();
 	}
 
-	@Endpoint(id = "pause")
-	public class PauseEndpoint {
-
-		@WriteOperation
-		public Boolean pause() {
-			if (isRunning()) {
-				doPause();
-				return true;
-			}
-			return false;
-		}
-	}
-
-	@Endpoint(id = "resume")
-	@ConfigurationProperties("management.endpoint.resume")
-	public class ResumeEndpoint {
-
-		@WriteOperation
-		public Boolean resume() {
-			if (!isRunning()) {
-				doResume();
-				return true;
-			}
-			return false;
-		}
-	}
-
 	// @ManagedOperation
 	public synchronized ConfigurableApplicationContext doRestart() {
 		if (this.context != null) {
@@ -202,17 +175,53 @@ public class RestartEndpoint implements ApplicationListener<ApplicationPreparedE
 				this.application.getClass().getClassLoader());
 	}
 
+	/**
+	 * Pause endpoint configuration.
+	 */
+	@Endpoint(id = "pause")
+	public class PauseEndpoint {
+
+		@WriteOperation
+		public Boolean pause() {
+			if (isRunning()) {
+				doPause();
+				return true;
+			}
+			return false;
+		}
+
+	}
+
+	/**
+	 * Resume endpoint configuration.
+	 */
+	@Endpoint(id = "resume")
+	@ConfigurationProperties("management.endpoint.resume")
+	public class ResumeEndpoint {
+
+		@WriteOperation
+		public Boolean resume() {
+			if (!isRunning()) {
+				doResume();
+				return true;
+			}
+			return false;
+		}
+
+	}
+
 	private class IntegrationShutdown {
 
 		private IntegrationMBeanExporter exporter;
 
-		public IntegrationShutdown(Object exporter) {
+		IntegrationShutdown(Object exporter) {
 			this.exporter = (IntegrationMBeanExporter) exporter;
 		}
 
 		public void stop(long timeout) {
 			this.exporter.stopActiveComponents(timeout);
 		}
+
 	}
 
 }

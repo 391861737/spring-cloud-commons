@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2015 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,9 +45,9 @@ import org.springframework.integration.monitor.IntegrationMBeanExporter;
  * @author Venil Noronha
  */
 @Configuration
-@ConditionalOnClass({EndpointAutoConfiguration.class, Health.class})
+@ConditionalOnClass({ EndpointAutoConfiguration.class, Health.class })
 @AutoConfigureAfter({ LifecycleMvcEndpointAutoConfiguration.class,
-		RefreshAutoConfiguration.class})
+		RefreshAutoConfiguration.class })
 @Import({ RestartEndpointWithIntegrationConfiguration.class,
 		RestartEndpointWithoutIntegrationConfiguration.class,
 		PauseResumeEndpointsConfiguration.class })
@@ -56,8 +56,9 @@ public class RefreshEndpointAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	@ConditionalOnEnabledHealthIndicator("refresh")
-	RefreshScopeHealthIndicator refreshScopeHealthIndicator(ObjectProvider<RefreshScope> scope,
-															ConfigurationPropertiesRebinder rebinder) {
+	RefreshScopeHealthIndicator refreshScopeHealthIndicator(
+			ObjectProvider<RefreshScope> scope,
+			ConfigurationPropertiesRebinder rebinder) {
 		return new RefreshScopeHealthIndicator(scope, rebinder);
 	}
 
@@ -74,6 +75,7 @@ public class RefreshEndpointAutoConfiguration {
 		}
 
 	}
+
 }
 
 @Configuration

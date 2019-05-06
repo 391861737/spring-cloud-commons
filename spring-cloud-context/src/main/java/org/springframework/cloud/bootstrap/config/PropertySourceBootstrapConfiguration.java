@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2016 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -61,6 +61,9 @@ import org.springframework.util.StringUtils;
 public class PropertySourceBootstrapConfiguration implements
 		ApplicationContextInitializer<ConfigurableApplicationContext>, Ordered {
 
+	/**
+	 * Bootstrap property source name.
+	 */
 	public static final String BOOTSTRAP_PROPERTY_SOURCE_NAME = BootstrapApplicationListener.BOOTSTRAP_PROPERTY_SOURCE_NAME
 			+ "Properties";
 
@@ -116,7 +119,8 @@ public class PropertySourceBootstrapConfiguration implements
 	private void reinitializeLoggingSystem(ConfigurableEnvironment environment,
 			String oldLogConfig, LogFile oldLogFile) {
 		Map<String, Object> props = Binder.get(environment)
-				.bind("logging", Bindable.mapOf(String.class, Object.class)).orElseGet(Collections::emptyMap);
+				.bind("logging", Bindable.mapOf(String.class, Object.class))
+				.orElseGet(Collections::emptyMap);
 		if (!props.isEmpty()) {
 			String logConfig = environment.resolvePlaceholders("${logging.config:}");
 			LogFile logFile = LogFile.get(environment);
@@ -134,8 +138,7 @@ public class PropertySourceBootstrapConfiguration implements
 			}
 			catch (Exception ex) {
 				PropertySourceBootstrapConfiguration.logger
-						.warn("Logging config file location '" + logConfig
-								+ "' cannot be opened and will be ignored");
+						.warn("Error opening logging config file " + logConfig, ex);
 			}
 		}
 	}
@@ -155,7 +158,8 @@ public class PropertySourceBootstrapConfiguration implements
 		MutablePropertySources incoming = new MutablePropertySources();
 		incoming.addFirst(composite);
 		PropertySourceBootstrapProperties remoteProperties = new PropertySourceBootstrapProperties();
-		Binder.get(environment(incoming)).bind("spring.cloud.config", Bindable.ofInstance(remoteProperties));
+		Binder.get(environment(incoming)).bind("spring.cloud.config",
+				Bindable.ofInstance(remoteProperties));
 		if (!remoteProperties.isAllowOverride() || (!remoteProperties.isOverrideNone()
 				&& remoteProperties.isOverrideSystemProperties())) {
 			propertySources.addFirst(composite);
@@ -232,7 +236,8 @@ public class PropertySourceBootstrapConfiguration implements
 
 	private String[] getProfilesForValue(Object property) {
 		final String value = (property == null ? null : property.toString());
-		return StringUtils.commaDelimitedListToStringArray(value);
+		return property == null ? new String[0]
+				: StringUtils.tokenizeToStringArray(value, ",");
 	}
 
 }

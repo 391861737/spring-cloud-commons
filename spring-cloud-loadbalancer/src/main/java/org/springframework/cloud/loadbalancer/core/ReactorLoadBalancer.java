@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,15 +22,23 @@ import org.springframework.cloud.client.loadbalancer.reactive.ReactiveLoadBalanc
 import org.springframework.cloud.client.loadbalancer.reactive.Request;
 import org.springframework.cloud.client.loadbalancer.reactive.Response;
 
+/**
+ * A Reactor based implementation of {@link ReactiveLoadBalancer}.
+ *
+ * @param <T> - type of the response
+ * @author Spencer Gibb
+ */
 public interface ReactorLoadBalancer<T> extends ReactiveLoadBalancer<T> {
+
 	/**
-	 * Choose the next server based on the load balancing algorithm
-	 * @param request
-	 * @return
+	 * Choose the next server based on the load balancing algorithm.
+	 * @param request - an input request
+	 * @return - mono of response
 	 */
 	Mono<Response<T>> choose(Request request);
 
 	default Mono<Response<T>> choose() {
 		return choose(REQUEST);
 	}
+
 }

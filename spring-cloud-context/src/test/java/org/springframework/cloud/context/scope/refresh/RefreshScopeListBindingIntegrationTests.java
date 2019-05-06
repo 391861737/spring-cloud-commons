@@ -1,11 +1,11 @@
 /*
- * Copyright 2006-2017 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,8 +42,7 @@ import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.BDDAssertions.then;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = TestConfiguration.class, properties = { "test.messages[0]=one",
@@ -62,23 +61,23 @@ public class RefreshScopeListBindingIntegrationTests {
 	@Test
 	@DirtiesContext
 	public void testAppendProperties() throws Exception {
-		assertEquals("[one, two]", this.properties.getMessages().toString());
-		assertTrue(this.properties instanceof Advised);
+		then("[one, two]").isEqualTo(this.properties.getMessages().toString());
+		then(this.properties instanceof Advised).isTrue();
 		TestPropertyValues.of("test.messages[0]:foo").applyTo(this.environment);
 		this.scope.refreshAll();
-		assertEquals("[foo]", this.properties.getMessages().toString());
+		then(this.properties.getMessages().toString()).isEqualTo("[foo]");
 	}
 
 	@Test
 	@DirtiesContext
 	public void testReplaceProperties() throws Exception {
-		assertEquals("[one, two]", this.properties.getMessages().toString());
-		assertTrue(this.properties instanceof Advised);
+		then("[one, two]").isEqualTo(this.properties.getMessages().toString());
+		then(this.properties instanceof Advised).isTrue();
 		Map<String, Object> map = findTestProperties();
 		map.clear();
 		TestPropertyValues.of("test.messages[0]:foo").applyTo(this.environment);
 		this.scope.refreshAll();
-		assertEquals("[foo]", this.properties.getMessages().toString());
+		then(this.properties.getMessages().toString()).isEqualTo("[foo]");
 	}
 
 	private Map<String, Object> findTestProperties() {

@@ -1,11 +1,11 @@
 /*
- * Copyright 2006-2017 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.cloud.context.refresh;
 
 import org.junit.Test;
@@ -32,7 +33,7 @@ import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.BDDAssertions.then;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = TestConfiguration.class, properties = {
@@ -51,45 +52,48 @@ public class ContextRefresherIntegrationTests {
 	@Test
 	@DirtiesContext
 	public void testSimpleProperties() throws Exception {
-		assertEquals("Hello scope!", this.properties.getMessage());
+		then(this.properties.getMessage()).isEqualTo("Hello scope!");
 		// Change the dynamic property source...
 		this.properties.setMessage("Foo");
 		// ...but don't refresh, so the bean stays the same:
-		assertEquals("Foo", this.properties.getMessage());
+		then(this.properties.getMessage()).isEqualTo("Foo");
 	}
 
 	@Test
 	@DirtiesContext
 	public void testRefreshBean() throws Exception {
-		assertEquals("Hello scope!", this.properties.getMessage());
+		then(this.properties.getMessage()).isEqualTo("Hello scope!");
 		// Change the dynamic property source...
 		this.properties.setMessage("Foo");
 		// ...and then refresh, so the bean is re-initialized:
 		this.refresher.refresh();
-		assertEquals("Hello scope!", this.properties.getMessage());
+		then(this.properties.getMessage()).isEqualTo("Hello scope!");
 	}
 
 	@Test
 	@DirtiesContext
 	public void testUpdateHikari() throws Exception {
-		assertEquals("Hello scope!", this.properties.getMessage());
+		then(this.properties.getMessage()).isEqualTo("Hello scope!");
 		TestPropertyValues.of("spring.datasource.hikari.read-only=true")
-				.applyTo(environment);
+				.applyTo(this.environment);
 		// ...and then refresh, so the bean is re-initialized:
 		this.refresher.refresh();
-		assertEquals("Hello scope!", this.properties.getMessage());
+		then(this.properties.getMessage()).isEqualTo("Hello scope!");
 	}
 
 	@Configuration
 	@EnableConfigurationProperties(TestProperties.class)
 	@EnableAutoConfiguration
 	protected static class TestConfiguration {
+
 	}
 
 	@ConfigurationProperties
 	@ManagedResource
 	protected static class TestProperties {
+
 		private String message;
+
 		private int delay;
 
 		@ManagedAttribute
@@ -109,6 +113,7 @@ public class ContextRefresherIntegrationTests {
 		public void setDelay(int delay) {
 			this.delay = delay;
 		}
+
 	}
 
 }

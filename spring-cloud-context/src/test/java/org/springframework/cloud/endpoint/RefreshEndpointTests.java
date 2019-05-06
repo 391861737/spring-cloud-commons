@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,9 +47,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.BDDAssertions.then;
 
 /**
  * @author Dave Syer
@@ -73,11 +71,11 @@ public class RefreshEndpointTests {
 				.properties("spring.cloud.bootstrap.name:none").run();
 		RefreshScope scope = new RefreshScope();
 		scope.setApplicationContext(this.context);
-		context.getEnvironment().setActiveProfiles("local");
+		this.context.getEnvironment().setActiveProfiles("local");
 		ContextRefresher contextRefresher = new ContextRefresher(this.context, scope);
 		RefreshEndpoint endpoint = new RefreshEndpoint(contextRefresher);
 		Collection<String> keys = endpoint.refresh();
-		assertTrue("Wrong keys: " + keys, keys.contains("added"));
+		then(keys.contains("added")).isTrue().as("Wrong keys: " + keys);
 	}
 
 	@Test
@@ -87,11 +85,11 @@ public class RefreshEndpointTests {
 				.properties("spring.cloud.bootstrap.name:none").run();
 		RefreshScope scope = new RefreshScope();
 		scope.setApplicationContext(this.context);
-		context.getEnvironment().setActiveProfiles("override");
+		this.context.getEnvironment().setActiveProfiles("override");
 		ContextRefresher contextRefresher = new ContextRefresher(this.context, scope);
 		RefreshEndpoint endpoint = new RefreshEndpoint(contextRefresher);
 		Collection<String> keys = endpoint.refresh();
-		assertTrue("Wrong keys: " + keys, keys.contains("message"));
+		then(keys.contains("message")).isTrue().as("Wrong keys: " + keys);
 	}
 
 	@Test
@@ -108,7 +106,7 @@ public class RefreshEndpointTests {
 		ContextRefresher contextRefresher = new ContextRefresher(this.context, scope);
 		RefreshEndpoint endpoint = new RefreshEndpoint(contextRefresher);
 		Collection<String> keys = endpoint.refresh();
-		assertTrue("Wrong keys: " + keys, keys.contains("external.message"));
+		then(keys.contains("external.message")).isTrue().as("Wrong keys: " + keys);
 	}
 
 	@Test
@@ -128,7 +126,7 @@ public class RefreshEndpointTests {
 		ContextRefresher contextRefresher = new ContextRefresher(this.context, scope);
 		RefreshEndpoint endpoint = new RefreshEndpoint(contextRefresher);
 		Collection<String> keys = endpoint.refresh();
-		assertFalse("Wrong keys: " + keys, keys.contains("external.message"));
+		then(keys.contains("external.message")).as("Wrong keys: " + keys).isFalse();
 	}
 
 	@Test
@@ -142,14 +140,14 @@ public class RefreshEndpointTests {
 		Empty empty = this.context.getBean(Empty.class);
 		endpoint.refresh();
 		int after = empty.events.size();
-		assertEquals("Shutdown hooks not cleaned on refresh", 2, after);
-		assertTrue(empty.events.get(0) instanceof EnvironmentChangeEvent);
+		then(2).isEqualTo(after).as("Shutdown hooks not cleaned on refresh");
+		then(empty.events.get(0) instanceof EnvironmentChangeEvent).isTrue();
 	}
 
 	@Test
 	public void shutdownHooksCleaned() {
-		try (ConfigurableApplicationContext context = new SpringApplicationBuilder(Empty.class)
-				.web(WebApplicationType.NONE).bannerMode(Mode.OFF).run()) {
+		try (ConfigurableApplicationContext context = new SpringApplicationBuilder(
+				Empty.class).web(WebApplicationType.NONE).bannerMode(Mode.OFF).run()) {
 			RefreshScope scope = new RefreshScope();
 			scope.setApplicationContext(context);
 			ContextRefresher contextRefresher = new ContextRefresher(context, scope);
@@ -157,7 +155,7 @@ public class RefreshEndpointTests {
 			int count = countShutdownHooks();
 			endpoint.refresh();
 			int after = countShutdownHooks();
-			assertEquals("Shutdown hooks not cleaned on refresh", count, after);
+			then(count).isEqualTo(after).as("Shutdown hooks not cleaned on refresh");
 		}
 	}
 
@@ -173,8 +171,8 @@ public class RefreshEndpointTests {
 
 	@Configuration
 	protected static class Empty implements SmartApplicationListener {
-		private List<ApplicationEvent> events = new ArrayList<ApplicationEvent>();
 
+		private List<ApplicationEvent> events = new ArrayList<ApplicationEvent>();
 
 		@Override
 		public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
@@ -184,11 +182,12 @@ public class RefreshEndpointTests {
 
 		@Override
 		public void onApplicationEvent(ApplicationEvent event) {
-			if (event instanceof EnvironmentChangeEvent ||
-				event instanceof RefreshScopeRefreshedEvent) {
+			if (event instanceof EnvironmentChangeEvent
+					|| event instanceof RefreshScopeRefreshedEvent) {
 				this.events.add(event);
 			}
 		}
+
 	}
 
 	@Component
@@ -202,4 +201,5 @@ public class RefreshEndpointTests {
 		}
 
 	}
+
 }

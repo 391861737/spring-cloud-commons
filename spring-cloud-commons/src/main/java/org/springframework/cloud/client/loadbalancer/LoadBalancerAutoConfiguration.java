@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2017 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,10 @@
  */
 
 package org.springframework.cloud.client.loadbalancer;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -27,13 +31,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
-import org.springframework.retry.backoff.BackOffPolicy;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Auto-configuration for Ribbon (client-side load balancing).
@@ -53,31 +52,32 @@ public class LoadBalancerAutoConfiguration {
 	@Autowired(required = false)
 	private List<RestTemplate> restTemplates = Collections.emptyList();
 
+	@Autowired(required = false)
+	private List<LoadBalancerRequestTransformer> transformers = Collections.emptyList();
+
 	@Bean
 	public SmartInitializingSingleton loadBalancedRestTemplateInitializerDeprecated(
 			final ObjectProvider<List<RestTemplateCustomizer>> restTemplateCustomizers) {
 		return () -> restTemplateCustomizers.ifAvailable(customizers -> {
-            for (RestTemplate restTemplate : LoadBalancerAutoConfiguration.this.restTemplates) {
-                for (RestTemplateCustomizer customizer : customizers) {
-                    customizer.customize(restTemplate);
-                }
-            }
-        });
+			for (RestTemplate restTemplate : LoadBalancerAutoConfiguration.this.restTemplates) {
+				for (RestTemplateCustomizer customizer : customizers) {
+					customizer.customize(restTemplate);
+				}
+			}
+		});
 	}
-
-	@Autowired(required = false)
-	private List<LoadBalancerRequestTransformer> transformers = Collections.emptyList();
 
 	@Bean
 	@ConditionalOnMissingBean
 	public LoadBalancerRequestFactory loadBalancerRequestFactory(
 			LoadBalancerClient loadBalancerClient) {
-		return new LoadBalancerRequestFactory(loadBalancerClient, transformers);
+		return new LoadBalancerRequestFactory(loadBalancerClient, this.transformers);
 	}
 
 	@Configuration
 	@ConditionalOnMissingClass("org.springframework.retry.support.RetryTemplate")
 	static class LoadBalancerInterceptorConfig {
+
 		@Bean
 		public LoadBalancerInterceptor ribbonInterceptor(
 				LoadBalancerClient loadBalancerClient,
@@ -90,14 +90,18 @@ public class LoadBalancerAutoConfiguration {
 		public RestTemplateCustomizer restTemplateCustomizer(
 				final LoadBalancerInterceptor loadBalancerInterceptor) {
 			return restTemplate -> {
-                List<ClientHttpRequestInterceptor> list = new ArrayList<>(
-                        restTemplate.getInterceptors());
-                list.add(loadBalancerInterceptor);
-                restTemplate.setInterceptors(list);
-            };
+				List<ClientHttpRequestInterceptor> list = new ArrayList<>(
+						restTemplate.getInterceptors());
+				list.add(loadBalancerInterceptor);
+				restTemplate.setInterceptors(list);
+			};
 		}
+
 	}
 
+	/**
+	 * Auto configuration for retry mechanism.
+	 */
 	@Configuration
 	@ConditionalOnClass(RetryTemplate.class)
 	public static class RetryAutoConfiguration {
@@ -105,17 +109,24 @@ public class LoadBalancerAutoConfiguration {
 		@Bean
 		@ConditionalOnMissingBean
 		public LoadBalancedRetryFactory loadBalancedRetryFactory() {
-			return new LoadBalancedRetryFactory() {};
+			return new LoadBalancedRetryFactory() {
+			};
 		}
+
 	}
 
+	/**
+	 * Auto configuration for retry intercepting mechanism.
+	 */
 	@Configuration
 	@ConditionalOnClass(RetryTemplate.class)
 	public static class RetryInterceptorAutoConfiguration {
+
 		@Bean
 		@ConditionalOnMissingBean
 		public RetryLoadBalancerInterceptor ribbonInterceptor(
-				LoadBalancerClient loadBalancerClient, LoadBalancerRetryProperties properties,
+				LoadBalancerClient loadBalancerClient,
+				LoadBalancerRetryProperties properties,
 				LoadBalancerRequestFactory requestFactory,
 				LoadBalancedRetryFactory loadBalancedRetryFactory) {
 			return new RetryLoadBalancerInterceptor(loadBalancerClient, properties,
@@ -127,11 +138,13 @@ public class LoadBalancerAutoConfiguration {
 		public RestTemplateCustomizer restTemplateCustomizer(
 				final RetryLoadBalancerInterceptor loadBalancerInterceptor) {
 			return restTemplate -> {
-                List<ClientHttpRequestInterceptor> list = new ArrayList<>(
-                        restTemplate.getInterceptors());
-                list.add(loadBalancerInterceptor);
-                restTemplate.setInterceptors(list);
-            };
+				List<ClientHttpRequestInterceptor> list = new ArrayList<>(
+						restTemplate.getInterceptors());
+				list.add(loadBalancerInterceptor);
+				restTemplate.setInterceptors(list);
+			};
 		}
+
 	}
+
 }

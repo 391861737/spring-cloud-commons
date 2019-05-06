@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2014 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,25 +34,26 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.ParentContextApplicationContextInitializer;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
+import org.springframework.boot.context.event.ApplicationFailedEvent;
 import org.springframework.boot.context.logging.LoggingApplicationListener;
+import org.springframework.boot.env.OriginTrackedMapPropertySource;
 import org.springframework.cloud.bootstrap.encrypt.EnvironmentDecryptApplicationInitializer;
 import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.event.SmartApplicationListener;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.CompositePropertySource;
 import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.env.PropertySource.StubPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
-import org.springframework.core.io.support.SpringFactoriesLoader;
-import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -70,10 +71,19 @@ import org.springframework.util.StringUtils;
 public class BootstrapApplicationListener
 		implements ApplicationListener<ApplicationEnvironmentPreparedEvent>, Ordered {
 
+	/**
+	 * Property source name for bootstrap.
+	 */
 	public static final String BOOTSTRAP_PROPERTY_SOURCE_NAME = "bootstrap";
 
+	/**
+	 * The default order for this listener.
+	 */
 	public static final int DEFAULT_ORDER = Ordered.HIGHEST_PRECEDENCE + 5;
 
+	/**
+	 * The name of the default properties.
+	 */
 	public static final String DEFAULT_PROPERTIES = "defaultProperties";
 
 	private int order = DEFAULT_ORDER;
@@ -103,7 +113,10 @@ public class BootstrapApplicationListener
 		if (context == null) {
 			context = bootstrapServiceContext(environment, event.getSpringApplication(),
 					configName);
+			event.getSpringApplication()
+					.addListeners(new CloseContextOnFailureApplicationListener(context));
 		}
+
 		apply(context, event.getSpringApplication(), environment);
 	}
 
@@ -143,8 +156,10 @@ public class BootstrapApplicationListener
 				.resolvePlaceholders("${spring.cloud.bootstrap.location:}");
 		Map<String, Object> bootstrapMap = new HashMap<>();
 		bootstrapMap.put("spring.config.name", configName);
-		// if an app (or test) uses spring.main.web-application-type=reactive, bootstrap will fail
-		// force the environment to use none, because if though it is set below in the builder
+		// if an app (or test) uses spring.main.web-application-type=reactive, bootstrap
+		// will fail
+		// force the environment to use none, because if though it is set below in the
+		// builder
 		// the environment overrides it
 		bootstrapMap.put("spring.main.web-application-type", "none");
 		if (StringUtils.hasText(configLocation)) {
@@ -158,14 +173,6 @@ public class BootstrapApplicationListener
 			}
 			bootstrapProperties.addLast(source);
 		}
-		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-		// Use names and ensure unique to protect against duplicates
-		List<String> names = new ArrayList<>(SpringFactoriesLoader
-				.loadFactoryNames(BootstrapConfiguration.class, classLoader));
-		for (String name : StringUtils.commaDelimitedListToStringArray(
-				environment.getProperty("spring.cloud.bootstrap.sources", ""))) {
-			names.add(name);
-		}
 		// TODO: is it possible or sensible to share a ResourceLoader?
 		SpringApplicationBuilder builder = new SpringApplicationBuilder()
 				.profiles(environment.getActiveProfiles()).bannerMode(Mode.OFF)
@@ -173,27 +180,26 @@ public class BootstrapApplicationListener
 				// Don't use the default properties in this builder
 				.registerShutdownHook(false).logStartupInfo(false)
 				.web(WebApplicationType.NONE);
+		final SpringApplication builderApplication = builder.application();
+		if (builderApplication.getMainApplicationClass() == null) {
+			// gh_425:
+			// SpringApplication cannot deduce the MainApplicationClass here
+			// if it is booted from SpringBootServletInitializer due to the
+			// absense of the "main" method in stackTraces.
+			// But luckily this method's second parameter "application" here
+			// carries the real MainApplicationClass which has been explicitly
+			// set by SpringBootServletInitializer itself already.
+			builder.main(application.getMainApplicationClass());
+		}
 		if (environment.getPropertySources().contains("refreshArgs")) {
 			// If we are doing a context refresh, really we only want to refresh the
 			// Environment, and there are some toxic listeners (like the
 			// LoggingApplicationListener) that affect global static state, so we need a
 			// way to switch those off.
-			builder.application()
-					.setListeners(filterListeners(builder.application().getListeners()));
+			builderApplication
+					.setListeners(filterListeners(builderApplication.getListeners()));
 		}
-		List<Class<?>> sources = new ArrayList<>();
-		for (String name : names) {
-			Class<?> cls = ClassUtils.resolveClassName(name, null);
-			try {
-				cls.getDeclaredAnnotations();
-			}
-			catch (Exception e) {
-				continue;
-			}
-			sources.add(cls);
-		}
-		AnnotationAwareOrderComparator.sort(sources);
-		builder.sources(sources.toArray(new Class[sources.size()]));
+		builder.sources(BootstrapImportSelectorConfiguration.class);
 		final ConfigurableApplicationContext context = builder.run();
 		// gh-214 using spring.application.name=bootstrap to set the context id via
 		// `ContextIdApplicationContextInitializer` prevents apps from getting the actual
@@ -231,18 +237,14 @@ public class BootstrapApplicationListener
 			}
 			else {
 				PropertySource<?> target = environment.get(name);
-				if (target instanceof MapPropertySource) {
+				if (target instanceof MapPropertySource && target != source
+						&& source instanceof MapPropertySource) {
 					Map<String, Object> targetMap = ((MapPropertySource) target)
 							.getSource();
-					if (target != source) {
-						if (source instanceof MapPropertySource) {
-							Map<String, Object> map = ((MapPropertySource) source)
-									.getSource();
-							for (String key : map.keySet()) {
-								if (!target.containsProperty(key)) {
-									targetMap.put(key, map.get(key));
-								}
-							}
+					Map<String, Object> map = ((MapPropertySource) source).getSource();
+					for (String key : map.keySet()) {
+						if (!target.containsProperty(key)) {
+							targetMap.put(key, map.get(key));
 						}
 					}
 				}
@@ -309,13 +311,11 @@ public class BootstrapApplicationListener
 
 	private void addBootstrapDecryptInitializer(SpringApplication application) {
 		DelegatingEnvironmentDecryptApplicationInitializer decrypter = null;
-		for (ApplicationContextInitializer<?> initializer : application
-				.getInitializers()) {
-			if (initializer instanceof EnvironmentDecryptApplicationInitializer) {
+		for (ApplicationContextInitializer<?> ini : application.getInitializers()) {
+			if (ini instanceof EnvironmentDecryptApplicationInitializer) {
 				@SuppressWarnings("unchecked")
-				ApplicationContextInitializer<ConfigurableApplicationContext> delegate = (ApplicationContextInitializer<ConfigurableApplicationContext>) initializer;
-				decrypter = new DelegatingEnvironmentDecryptApplicationInitializer(
-						delegate);
+				ApplicationContextInitializer del = (ApplicationContextInitializer) ini;
+				decrypter = new DelegatingEnvironmentDecryptApplicationInitializer(del);
 			}
 		}
 		if (decrypter != null) {
@@ -333,13 +333,13 @@ public class BootstrapApplicationListener
 		return result;
 	}
 
-	public void setOrder(int order) {
-		this.order = order;
-	}
-
 	@Override
 	public int getOrder() {
 		return this.order;
+	}
+
+	public void setOrder(int order) {
+		this.order = order;
 	}
 
 	private static class AncestorInitializer implements
@@ -347,7 +347,7 @@ public class BootstrapApplicationListener
 
 		private ConfigurableApplicationContext parent;
 
-		public AncestorInitializer(ConfigurableApplicationContext parent) {
+		AncestorInitializer(ConfigurableApplicationContext parent) {
 			this.parent = parent;
 		}
 
@@ -403,7 +403,7 @@ public class BootstrapApplicationListener
 
 		private ApplicationContextInitializer<ConfigurableApplicationContext> delegate;
 
-		public DelegatingEnvironmentDecryptApplicationInitializer(
+		DelegatingEnvironmentDecryptApplicationInitializer(
 				ApplicationContextInitializer<ConfigurableApplicationContext> delegate) {
 			this.delegate = delegate;
 		}
@@ -419,12 +419,20 @@ public class BootstrapApplicationListener
 			extends SystemEnvironmentPropertySource {
 
 		private final CompositePropertySource sources;
+
 		private final List<String> names = new ArrayList<>();
 
-		public ExtendedDefaultPropertySource(String name,
-				PropertySource<?> propertySource) {
+		ExtendedDefaultPropertySource(String name, PropertySource<?> propertySource) {
 			super(name, findMap(propertySource));
 			this.sources = new CompositePropertySource(name);
+		}
+
+		@SuppressWarnings("unchecked")
+		private static Map<String, Object> findMap(PropertySource<?> propertySource) {
+			if (propertySource instanceof MapPropertySource) {
+				return (Map<String, Object>) propertySource.getSource();
+			}
+			return new LinkedHashMap<String, Object>();
 		}
 
 		public CompositePropertySource getPropertySources() {
@@ -436,7 +444,8 @@ public class BootstrapApplicationListener
 		}
 
 		public void add(PropertySource<?> source) {
-			if (source instanceof EnumerablePropertySource
+			// Only add map property sources added by boot, see gh-476
+			if (source instanceof OriginTrackedMapPropertySource
 					&& !this.names.contains(source.getName())) {
 				this.sources.addPropertySource(source);
 				this.names.add(source.getName());
@@ -467,12 +476,28 @@ public class BootstrapApplicationListener
 			return names.toArray(new String[0]);
 		}
 
-		@SuppressWarnings("unchecked")
-		private static Map<String, Object> findMap(PropertySource<?> propertySource) {
-			if (propertySource instanceof MapPropertySource) {
-				return (Map<String, Object>) propertySource.getSource();
+	}
+
+	private static class CloseContextOnFailureApplicationListener
+			implements SmartApplicationListener {
+
+		private final ConfigurableApplicationContext context;
+
+		CloseContextOnFailureApplicationListener(ConfigurableApplicationContext context) {
+			this.context = context;
+		}
+
+		@Override
+		public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+			return ApplicationFailedEvent.class.isAssignableFrom(eventType);
+		}
+
+		@Override
+		public void onApplicationEvent(ApplicationEvent event) {
+			if (event instanceof ApplicationFailedEvent) {
+				this.context.close();
 			}
-			return new LinkedHashMap<String, Object>();
+
 		}
 
 	}

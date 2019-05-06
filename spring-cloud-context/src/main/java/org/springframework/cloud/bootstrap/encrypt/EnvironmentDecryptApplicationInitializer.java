@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.cloud.bootstrap.encrypt;
 
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ import org.springframework.core.env.SystemEnvironmentPropertySource;
 import org.springframework.security.crypto.encrypt.TextEncryptor;
 
 /**
- * Decrypts properties from the environment and inserts them with high priority so they
+ * Decrypt properties from the environment and insert them with high priority so they
  * override the encrypted values.
  *
  * @author Dave Syer
@@ -51,14 +52,23 @@ import org.springframework.security.crypto.encrypt.TextEncryptor;
 public class EnvironmentDecryptApplicationInitializer implements
 		ApplicationContextInitializer<ConfigurableApplicationContext>, Ordered {
 
+	/**
+	 * Name of the decrypted property source.
+	 */
 	public static final String DECRYPTED_PROPERTY_SOURCE_NAME = "decrypted";
 
+	/**
+	 * Name of the decrypted bootstrap property source.
+	 */
 	public static final String DECRYPTED_BOOTSTRAP_PROPERTY_SOURCE_NAME = "decryptedBootstrap";
 
-	private int order = Ordered.HIGHEST_PRECEDENCE + 15;
+	private static final Pattern COLLECTION_PROPERTY = Pattern
+			.compile("(\\S+)?\\[(\\d+)\\](\\.\\S+)?");
 
 	private static Log logger = LogFactory
 			.getLog(EnvironmentDecryptApplicationInitializer.class);
+
+	private int order = Ordered.HIGHEST_PRECEDENCE + 15;
 
 	private TextEncryptor encryptor;
 
@@ -66,8 +76,7 @@ public class EnvironmentDecryptApplicationInitializer implements
 
 	/**
 	 * Strategy to determine how to handle exceptions during decryption.
-	 *
-	 * @param failOnError The flag value (default true).
+	 * @param failOnError the flag value (default true)
 	 */
 	public void setFailOnError(boolean failOnError) {
 		this.failOnError = failOnError;
@@ -173,9 +182,6 @@ public class EnvironmentDecryptApplicationInitializer implements
 		decrypt(source, overrides);
 		return overrides;
 	}
-
-	private static final Pattern COLLECTION_PROPERTY = Pattern
-			.compile("(\\S+)?\\[(\\d+)\\](\\.\\S+)?");
 
 	private void decrypt(PropertySource<?> source, Map<String, Object> overrides) {
 
